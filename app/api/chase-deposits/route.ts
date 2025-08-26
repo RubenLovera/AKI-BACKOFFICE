@@ -34,9 +34,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Configuración de Teller.io incompleta" }, { status: 500 })
     }
 
-    const decodedCert = Buffer.from(tellerCert, "base64").toString("utf-8")
-    const decodedKey = Buffer.from(tellerPrivateKey, "base64").toString("utf-8")
+    let decodedCert: string
+    let decodedKey: string
 
+    if (tellerCert.startsWith("-----BEGIN")) {
+      // Already in PEM format
+      decodedCert = tellerCert
+    } else {
+      // Decode from base64
+      decodedCert = Buffer.from(tellerCert, "base64").toString("utf-8")
+    }
+
+    if (tellerPrivateKey.startsWith("-----BEGIN")) {
+      // Already in PEM format
+      decodedKey = tellerPrivateKey
+    } else {
+      // Decode from base64
+      decodedKey = Buffer.from(tellerPrivateKey, "base64").toString("utf-8")
+    }
+
+    console.log("[v0] Cert format check - starts with BEGIN:", decodedCert.startsWith("-----BEGIN"))
+    console.log("[v0] Key format check - starts with BEGIN:", decodedKey.startsWith("-----BEGIN"))
     console.log("[v0] Cert starts with:", decodedCert.substring(0, 30) + "...")
     console.log("[v0] Key starts with:", decodedKey.substring(0, 30) + "...")
 

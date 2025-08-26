@@ -51,13 +51,7 @@ export function Zelle() {
   const totalDepositosMes = depositos.reduce((total, deposito) => total + deposito.monto, 0)
 
   const formatearFecha = (fecha: string) => {
-    const fechaObj = new Date(fecha)
-
-    if (isNaN(fechaObj.getTime())) {
-      return "Fecha inválida"
-    }
-
-    return fechaObj.toLocaleDateString("es-ES", {
+    return new Date(fecha).toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -82,7 +76,7 @@ export function Zelle() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="space-y-1">
             <CardTitle className="text-2xl font-bold text-green-800">Total Depósitos del Mes</CardTitle>
-            <CardDescription className="text-green-600">Ingresos totales recibidos</CardDescription>
+            <CardDescription className="text-green-600">Ingresos acumulados en enero 2024</CardDescription>
           </div>
           <div className="flex items-center space-x-2">
             <TrendingUp className="h-8 w-8 text-green-600" />
@@ -108,13 +102,11 @@ export function Zelle() {
 
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle className="flex items-center space-x-2">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              <span>Historial de Depósitos</span>
-            </CardTitle>
-            <CardDescription>Lista completa de depósitos recibidos via Chase y Zelle</CardDescription>
-          </div>
+          <CardTitle className="flex items-center space-x-2">
+            <DollarSign className="h-5 w-5 text-green-600" />
+            <span>Historial de Depósitos</span>
+          </CardTitle>
+          <CardDescription>Lista completa de depósitos recibidos via Chase y Zelle</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (

@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { AbortSignal } from "abort-controller"
 
 interface TellerTransaction {
   id: string
@@ -36,42 +35,51 @@ export async function GET(request: NextRequest) {
     console.log("[v0] Request URL:", url)
     console.log("[v0] Auth header format:", authHeader.substring(0, 20) + "...")
 
-    // Llamada a Teller.io API
-    const response = await fetch(url, {
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json",
-      },
-      // Timeout de 10 segundos
-      signal: AbortSignal.timeout(10000),
-    })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
 
-    console.log("[v0] Response status:", response.status)
-    console.log("[v0] Response headers:", Object.fromEntries(response.headers.entries()))
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.log("[v0] Error response body:", errorText)
-      throw new Error(`Teller API error: ${response.status}`)
-    }
-
-    const transactions: TellerTransaction[] = await response.json()
-
-    // Filtrar solo depósitos (amount > 0) y formatear datos
-    const depositos: Deposito[] = transactions
-      .filter((transaction) => {
-        const amount = Number.parseFloat(transaction.amount)
-        return amount > 0 && transaction.status === "posted"
+    try {
+      // Llamada a Teller.io API
+      const response = await fetch(url, {
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
       })
-      .map((transaction) => ({
-        id: transaction.id,
-        fecha: transaction.date, // Ya viene en formato ISO
-        descripcion: transaction.description || "Depósito Chase",
-        monto: Number.parseFloat(transaction.amount),
-      }))
-      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()) // Más recientes primero
 
-    return NextResponse.json(depositos)
+      clearTimeout(timeoutId)
+
+      console.log("[v0] Response status:", response.status)
+      console.log("[v0] Response headers:", Object.fromEntries(response.headers.entries()))
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.log("[v0] Error response body:", errorText)
+        throw new Error(`Teller API error: ${response.status}`)
+      }
+
+      const transactions: TellerTransaction[] = await response.json()
+
+      // Filtrar solo depósitos (amount > 0) y formatear datos
+      const depositos: Deposito[] = transactions
+        .filter((transaction) => {
+          const amount = Number.parseFloat(transaction.amount)
+          return amount > 0 && transaction.status === "posted"
+        })
+        .map((transaction) => ({
+          id: transaction.id,
+          fecha: transaction.date, // Ya viene en formato ISO
+          descripcion: transaction.description || "Depósito Chase",
+          monto: Number.parseFloat(transaction.amount),
+        }))
+        .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()) // Más recientes primero
+
+      return NextResponse.json(depositos)
+    } catch (fetchError) {
+      clearTimeout(timeoutId)
+      throw fetchError
+    }
   } catch (error) {
     console.error("[v0] Detailed error:", error)
     console.error("[v0] Error name:", error instanceof Error ? error.name : "Unknown")

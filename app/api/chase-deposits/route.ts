@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { AbortSignal } from "abort-controller"
 
 interface TellerTransaction {
   id: string
@@ -21,9 +22,15 @@ export async function GET(request: NextRequest) {
     const tellerApiKey = process.env.TELLER_API_KEY
     const tellerAccountId = process.env.TELLER_ACCOUNT_ID
 
+    console.log("[v0] Teller API Key exists:", !!tellerApiKey)
+    console.log("[v0] Teller Account ID exists:", !!tellerAccountId)
+
     if (!tellerApiKey || !tellerAccountId) {
+      console.log("[v0] Missing Teller configuration")
       return NextResponse.json({ error: "Configuración de Teller.io incompleta" }, { status: 500 })
     }
+
+    console.log("[v0] Making request to Teller API...")
 
     // Llamada a Teller.io API
     const response = await fetch(`https://api.teller.io/accounts/${tellerAccountId}/transactions`, {
@@ -35,7 +42,11 @@ export async function GET(request: NextRequest) {
       signal: AbortSignal.timeout(10000),
     })
 
+    console.log("[v0] Teller API response status:", response.status)
+
     if (!response.ok) {
+      const errorText = await response.text()
+      console.log("[v0] Teller API error response:", errorText)
       throw new Error(`Teller API error: ${response.status}`)
     }
 
@@ -57,7 +68,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(depositos)
   } catch (error) {
-    console.error("Error fetching Chase deposits:", error)
+    console.error("[v0] Detailed error:", error)
+    console.error("[v0] Error type:", error instanceof Error ? error.constructor.name : typeof error)
 
     if (error instanceof Error && error.name === "AbortError") {
       return NextResponse.json({ error: "Timeout conectando con Chase" }, { status: 408 })

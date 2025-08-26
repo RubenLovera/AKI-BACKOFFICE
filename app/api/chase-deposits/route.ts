@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import https from "https"
+import { URL } from "url"
 
 interface TellerTransaction {
   id: string
@@ -64,57 +65,79 @@ export async function GET(request: NextRequest) {
     console.log("[v0] Request URL:", url)
     console.log("[v0] Auth header format:", authHeader.substring(0, 20) + "...")
 
-    const httpsAgent = new https.Agent({
+    const urlObj = new URL(url)
+
+    const options: https.RequestOptions = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: "GET",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+      },
       cert: decodedCert,
       key: decodedKey,
       rejectUnauthorized: true,
-    })
+      timeout: 10000,
+    }
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    console.log("[v0] HTTPS options configured with certificates")
 
-    try {
-      const response = await fetch(url, {
-        headers: {
-          Authorization: authHeader,
-          "Content-Type": "application/json",
-        },
-        signal: controller.signal,
-        // @ts-ignore - Node.js fetch supports agent option
-        agent: httpsAgent,
+    const response = await new Promise<{ status: number; headers: any; body: string }>((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        let body = ""
+
+        res.on("data", (chunk) => {
+          body += chunk
+        })
+
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode || 0,
+            headers: res.headers,
+            body: body,
+          })
+        })
       })
 
-      clearTimeout(timeoutId)
+      req.on("error", (error) => {
+        console.error("[v0] HTTPS request error:", error)
+        reject(error)
+      })
 
-      console.log("[v0] Response status:", response.status)
-      console.log("[v0] Response headers:", Object.fromEntries(response.headers.entries()))
+      req.on("timeout", () => {
+        req.destroy()
+        reject(new Error("Request timeout"))
+      })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.log("[v0] Error response body:", errorText)
-        throw new Error(`Teller API error: ${response.status}`)
-      }
+      req.end()
+    })
 
-      const transactions: TellerTransaction[] = await response.json()
+    console.log("[v0] Response status:", response.status)
+    console.log("[v0] Response headers:", response.headers)
 
-      const depositos: Deposito[] = transactions
-        .filter((transaction) => {
-          const amount = Number.parseFloat(transaction.amount)
-          return amount > 0 && transaction.status === "posted"
-        })
-        .map((transaction) => ({
-          id: transaction.id,
-          fecha: transaction.date,
-          descripcion: transaction.description || "Depósito Chase",
-          monto: Number.parseFloat(transaction.amount),
-        }))
-        .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-
-      return NextResponse.json(depositos)
-    } catch (fetchError) {
-      clearTimeout(timeoutId)
-      throw fetchError
+    if (response.status !== 200) {
+      console.log("[v0] Error response body:", response.body)
+      throw new Error(`Teller API error: ${response.status}`)
     }
+
+    const transactions: TellerTransaction[] = JSON.parse(response.body)
+
+    const depositos: Deposito[] = transactions
+      .filter((transaction) => {
+        const amount = Number.parseFloat(transaction.amount)
+        return amount > 0 && transaction.status === "posted"
+      })
+      .map((transaction) => ({
+        id: transaction.id,
+        fecha: transaction.date,
+        descripcion: transaction.description || "Depósito Chase",
+        monto: Number.parseFloat(transaction.amount),
+      }))
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+
+    return NextResponse.json(depositos)
   } catch (error) {
     console.error("[v0] Detailed error:", error)
     console.error("[v0] Error name:", error instanceof Error ? error.name : "Unknown")

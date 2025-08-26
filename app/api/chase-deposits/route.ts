@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     const depositos: Deposito[] = transactions
       .filter((transaction) => {
         const amount = Number.parseFloat(transaction.amount)
-        return amount > 0 && transaction.status === "posted"
+        return amount > 0 && (transaction.status === "posted" || transaction.status === "pending")
       })
       .map((transaction) => ({
         id: transaction.id,

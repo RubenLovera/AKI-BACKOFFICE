@@ -43,6 +43,9 @@ export function Zelle() {
       }
 
       const data: Deposito[] = await response.json()
+      console.log("[v0] Raw data from API:", data.slice(0, 3)) // Show first 3 items
+      console.log("[v0] Sample date field:", data[0]?.fecha)
+      console.log("[v0] Parsed date test:", new Date(data[0]?.fecha))
       setDepositos(data)
     } catch (error) {
       console.error("Error fetching deposits:", error)
@@ -93,6 +96,21 @@ export function Zelle() {
   const depositosFiltrados = depositos.filter((deposito) => {
     const fechaDeposito = new Date(deposito.fecha)
     const { inicio, fin } = calcularRangoFecha(filtroFecha)
+
+    console.log("[v0] Filtering deposit:", {
+      originalDate: deposito.fecha,
+      parsedDate: fechaDeposito,
+      isValidDate: !isNaN(fechaDeposito.getTime()),
+      rangeStart: inicio,
+      rangeEnd: fin,
+      isInRange: fechaDeposito >= inicio && fechaDeposito <= fin,
+    })
+
+    if (isNaN(fechaDeposito.getTime())) {
+      console.log("[v0] Invalid date found:", deposito.fecha)
+      return false
+    }
+
     return fechaDeposito >= inicio && fechaDeposito <= fin
   })
 
@@ -114,7 +132,15 @@ export function Zelle() {
   }
 
   const formatearFecha = (fecha: string) => {
-    return new Date(fecha).toLocaleDateString("es-ES", {
+    const fechaObj = new Date(fecha)
+    console.log("[v0] Formatting date:", { original: fecha, parsed: fechaObj, isValid: !isNaN(fechaObj.getTime()) })
+
+    if (isNaN(fechaObj.getTime())) {
+      console.log("[v0] Invalid date in formatearFecha:", fecha)
+      return "Fecha inválida"
+    }
+
+    return fechaObj.toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",

@@ -34,6 +34,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Configuración de Teller.io incompleta" }, { status: 500 })
     }
 
+    const decodedCert = Buffer.from(tellerCert, "base64").toString("utf-8")
+    const decodedKey = Buffer.from(tellerPrivateKey, "base64").toString("utf-8")
+
+    console.log("[v0] Cert starts with:", decodedCert.substring(0, 30) + "...")
+    console.log("[v0] Key starts with:", decodedKey.substring(0, 30) + "...")
+
     const url = `https://api.teller.io/accounts/${tellerAccountId}/transactions`
     const authHeader = `Basic ${Buffer.from(`${tellerApiKey}:`).toString("base64")}`
 
@@ -41,8 +47,8 @@ export async function GET(request: NextRequest) {
     console.log("[v0] Auth header format:", authHeader.substring(0, 20) + "...")
 
     const httpsAgent = new https.Agent({
-      cert: tellerCert,
-      key: tellerPrivateKey,
+      cert: decodedCert,
+      key: decodedKey,
       rejectUnauthorized: true,
     })
 

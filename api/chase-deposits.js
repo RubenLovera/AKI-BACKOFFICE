@@ -16,11 +16,11 @@ export default async function handler(req, res) {
       throw new Error('Missing environment variables');
     }
 
-    // Hacer petición con certificados SSL
+    // Hacer petición con certificados SSL para payments (Zelle)
     const options = {
       hostname: 'api.teller.io',
       port: 443,
-      path: `/accounts/${accountId}/transactions`,
+      path: `/accounts/${accountId}/payments`,
       method: 'GET',
       cert: cert,
       key: key,
@@ -46,8 +46,12 @@ export default async function handler(req, res) {
       req.end();
     });
 
-    // Filtrar solo depósitos (montos positivos)
-    const deposits = data.filter(transaction => parseFloat(transaction.amount) > 0);
+    // Filtrar solo pagos Zelle recibidos (depósitos)
+    const deposits = data.filter(payment => {
+      return parseFloat(payment.amount) > 0 && 
+             payment.payee && 
+             payment.payee.scheme === 'zelle';
+    });
     
     res.status(200).json(deposits);
     
